@@ -293,6 +293,172 @@
   ::-webkit-scrollbar-track { background: var(--surface); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+  /* ===== RESPONSIVE MOBILE DESIGN ===== */
+  @media (max-width: 1200px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .charts-row { grid-template-columns: 1fr; }
+    .content-row { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 768px) {
+    .header {
+      padding: 10px 16px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .header-left { gap: 10px; }
+    .header h1 { font-size: 14px; letter-spacing: 1px; }
+    .header-right { gap: 12px; }
+    #clock { font-size: 18px; }
+    #date-display { font-size: 11px; }
+    
+    .main { padding: 16px; gap: 16px; }
+    
+    .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-card { padding: 14px 16px; }
+    .stat-label { font-size: 9px; }
+    .stat-value { font-size: 24px; }
+    .stat-sub { font-size: 10px; }
+    
+    .charts-row { grid-template-columns: 1fr; gap: 10px; }
+    .card { border-radius: 8px; }
+    .card-header { padding: 12px 14px; }
+    .card-title { font-size: 11px; }
+    .card-body { padding: 14px; }
+    
+    .donut-wrap { width: 160px; height: 160px; }
+    .donut-total { font-size: 20px; }
+    .donut-label { font-size: 9px; }
+    
+    .bar-chart-wrap { height: 220px; }
+    
+    .content-row { grid-template-columns: 1fr; gap: 10px; }
+    
+    .tab-bar { padding: 8px 10px; gap: 4px; flex-wrap: wrap; }
+    .tab-btn { font-size: 11px; padding: 4px 10px; }
+    
+    .search-bar { padding: 8px 10px; gap: 6px; }
+    .search-input { font-size: 12px; padding: 6px 10px; }
+    
+    .rak-grid { 
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); 
+      gap: 8px; 
+      padding: 10px;
+      max-height: 350px;
+    }
+    .rak-card { padding: 10px; border-radius: 6px; }
+    .rak-name { font-size: 14px; margin-bottom: 3px; }
+    .rak-count-badge { font-size: 10px; padding: 2px 5px; }
+    .rak-spk-list { font-size: 9px; max-height: 50px; }
+    .rak-more { font-size: 9px; }
+    
+    .input-panel .card-body { padding: 14px; }
+    .form-label { font-size: 9px; margin-bottom: 4px; }
+    .form-input { font-size: 13px; padding: 8px 10px; }
+    .btn-add { font-size: 12px; padding: 10px; }
+    
+    .modal {
+      width: 90vw;
+      max-width: 340px;
+      max-height: 70vh;
+      padding: 18px;
+    }
+    .modal-header { margin-bottom: 12px; }
+    .modal-title { font-size: 14px; }
+    .modal-close { font-size: 18px; }
+    
+    .legend-grid { grid-template-columns: 1fr; gap: 4px; margin-top: 10px; }
+    .legend-item { font-size: 10px; }
+    
+    .toast {
+      bottom: 16px;
+      right: 16px;
+      left: 16px;
+      width: auto;
+      font-size: 11px;
+      padding: 8px 14px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .header {
+      padding: 8px 12px;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .header-left { width: 100%; }
+    .header h1 { font-size: 12px; letter-spacing: 0.5px; }
+    .header-right { width: 100%; justify-content: space-between; }
+    #clock { font-size: 16px; }
+    #date-display { font-size: 10px; }
+    .status-badge { font-size: 10px; padding: 3px 10px; }
+    
+    .main { padding: 12px; gap: 12px; }
+    
+    .stats-row { grid-template-columns: 1fr; gap: 8px; }
+    .stat-card { padding: 12px 14px; }
+    .stat-label { font-size: 8px; }
+    .stat-value { font-size: 20px; }
+    .stat-sub { font-size: 9px; margin-top: 4px; }
+    
+    .donut-wrap { width: 140px; height: 140px; }
+    .donut-total { font-size: 18px; }
+    .donut-label { font-size: 8px; }
+    
+    .bar-chart-wrap { height: 180px; }
+    
+    .tab-bar { padding: 6px 8px; gap: 2px; }
+    .tab-btn { font-size: 10px; padding: 3px 8px; }
+    
+    .search-bar { padding: 6px 8px; gap: 4px; flex-wrap: wrap; }
+    .search-input { font-size: 11px; padding: 5px 8px; }
+    
+    .rak-grid { 
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      padding: 8px;
+      max-height: 300px;
+    }
+    .rak-card { padding: 8px; border-radius: 5px; }
+    .rak-name { font-size: 12px; margin-bottom: 2px; }
+    .rak-count-badge { font-size: 9px; padding: 1px 4px; }
+    .rak-spk-list { font-size: 8px; max-height: 45px; line-height: 1.4; }
+    .rak-more { font-size: 8px; margin-top: 2px; }
+    
+    .form-label { font-size: 8px; margin-bottom: 3px; }
+    .form-input { font-size: 12px; padding: 6px 8px; }
+    .btn-add { font-size: 11px; padding: 8px; }
+    
+    .recent-log { margin-top: 12px; }
+    .recent-log-title { font-size: 9px; margin-bottom: 6px; }
+    .log-entry { font-size: 10px; padding: 6px 8px; margin-bottom: 4px; }
+    
+    .modal {
+      width: 95vw;
+      max-width: 300px;
+      max-height: 65vh;
+      padding: 14px;
+    }
+    .modal-header { margin-bottom: 10px; }
+    .modal-title { font-size: 13px; }
+    .modal-close { font-size: 16px; }
+    .spk-tag { font-size: 10px; padding: 3px 6px; }
+    .spk-src { font-size: 8px; }
+    
+    .legend-grid { grid-template-columns: 1fr; gap: 3px; margin-top: 8px; }
+    .legend-item { font-size: 9px; }
+    .legend-dot { width: 8px; height: 8px; }
+  }
+
+  @media (max-width: 360px) {
+    .header h1 { font-size: 11px; }
+    .stats-row { gap: 6px; }
+    .stat-card { padding: 10px 12px; }
+    .stat-value { font-size: 18px; }
+    .rak-grid { grid-template-columns: 1fr; }
+    .modal { width: 98vw; max-width: 280px; }
+  }
+
   /* DETAIL MODAL */
   .modal-overlay {
     position: fixed; inset: 0;
