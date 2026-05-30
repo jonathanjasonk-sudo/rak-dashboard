@@ -1116,6 +1116,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     showToast('Failed to connect to database', 'error');
   }
 });
+
+// ===== AUTO REFRESH EVERY 1 MINUTE =====
+setInterval(async () => {
+  const success = await fetchData();
+  if (success) {
+    refreshAll();
+  }
+}, 60000); // 60 seconds
 </script>
 </body>
 </html>
