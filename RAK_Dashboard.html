@@ -734,16 +734,22 @@ async function addEntry(spk, rak) {
 
 async function deleteEntry(id, spk, rak) {
   try {
+    console.log(`Deleting entry: id=${id}, spk=${spk}, rak=${rak}`);
+    
     const res = await fetch(API_BASE + `/entries/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete');
+    
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
     
     await fetchData();
     refreshAll();
-    showToast(`SPK ${spk} dihapus dari ${rak}`, 'error');
+    showToast(`✓ SPK ${spk} dihapus dari ${rak}`);
     return true;
   } catch (err) {
     console.error('Delete error:', err);
-    showToast('Gagal menghapus data', 'error');
+    showToast(`❌ Gagal menghapus: ${err.message}`, 'error');
     return false;
   }
 }
@@ -966,7 +972,7 @@ function openModal(rak) {
     <div class="spk-tag">
       <span>${e.spk}</span>
       <span class="spk-src">${e.source}</span>
-      <button class="spk-del-btn" onclick="deleteEntry('${e.id || i}','${e.spk}','${e.rak}',event)" title="Hapus">×</button>
+      <button class="spk-del-btn" onclick="confirmDeleteEntry('${e.id || i}','${e.spk}','${e.rak}')" title="Hapus">×</button>
     </div>
   `).join('');
   document.getElementById('modalOverlay').classList.add('open');
@@ -979,8 +985,10 @@ function closeModalBtn() {
   document.getElementById('modalOverlay').classList.remove('open');
 }
 
-async function deleteEntryFromModal(id, spk, rak, event) {
-  event.stopPropagation();
+async function confirmDeleteEntry(id, spk, rak) {
+  const confirmed = confirm(`Hapus SPK ${spk} dari ${rak}?`);
+  if (!confirmed) return;
+  
   await deleteEntry(id, spk, rak);
   openModal(rak);
 }

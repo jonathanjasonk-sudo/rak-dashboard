@@ -60,7 +60,7 @@ async function initDatabase() {
 app.get('/api/data', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT spk, rak, source FROM rak_entries ORDER BY created_at DESC LIMIT 10000'
+      'SELECT id, spk, rak, source FROM rak_entries ORDER BY created_at DESC LIMIT 10000'
     );
     res.json(result.rows);
   } catch (err) {
