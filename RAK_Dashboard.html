@@ -439,7 +439,10 @@
         <div class="form-group" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
           <label class="form-label">Import dari Excel</label>
           <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" style="display:none;">
-          <button class="btn-add" style="background: var(--accent-green);" onclick="document.getElementById('excelFile').click()">📥 Pilih File Excel</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-add" style="background: var(--accent-green); flex: 1;" onclick="document.getElementById('excelFile').click()">📥 Pilih File Excel</button>
+            <button class="btn-add" style="background: #d32f2f; flex: 1;" onclick="resetData()">🗑️ Reset Data</button>
+          </div>
           <div id="importStatus" style="margin-top: 8px; font-size: 11px; color: var(--text-muted);"></div>
         </div>
 
@@ -843,6 +846,34 @@ document.getElementById('excelFile').addEventListener('change', async (e) => {
   // Clear status after 5 seconds
   setTimeout(() => { statusDiv.textContent = ''; }, 5000);
 });
+
+// ===== RESET DATA =====
+async function resetData() {
+  const confirmed = confirm('⚠️ Apakah Anda yakin ingin menghapus SEMUA data? Tindakan ini tidak bisa dibatalkan!');
+  if (!confirmed) return;
+
+  const secondConfirm = confirm('PERHATIAN: Ini akan menghapus 479+ data yang sudah ada. Lanjutkan?');
+  if (!secondConfirm) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      showToast('✓ Semua data telah dihapus! Siap untuk upload ulang.', 'success');
+      refreshAll();
+      renderLog();
+    } else {
+      showToast('✗ Gagal reset data', 'error');
+    }
+  } catch (err) {
+    console.error('Reset error:', err);
+    showToast('✗ Error: ' + err.message, 'error');
+  }
+}
 
 // ===== LOG =====
 function renderLog() {

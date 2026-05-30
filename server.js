@@ -160,6 +160,7 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
     
     let importedCount = 0;
     let skippedCount = 0;
+    let duplicateCount = 0;
     const errors = [];
 
     for (const sheetName of sheetNames) {
@@ -177,11 +178,15 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
         }
 
         try {
-          await pool.query(
-            'INSERT INTO rak_entries (spk, rak, source) VALUES ($1, $2, $3) ON CONFLICT (spk, rak) DO NOTHING',
+          const result = await pool.query(
+            'INSERT INTO rak_entries (spk, rak, source) VALUES ($1, $2, $3) ON CONFLICT (spk, rak) DO NOTHING RETURNING id',
             [String(spk).trim(), String(rak).trim().toUpperCase(), `Excel: ${sheetName}`]
           );
-          importedCount++;
+          if (result.rows.length > 0) {
+            importedCount++;
+          } else {
+            duplicateCount++;
+          }
         } catch (err) {
           skippedCount++;
           errors.push(`${spk} - ${rak}: ${err.message}`);
@@ -192,12 +197,24 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
     res.json({
       message: 'Import completed',
       imported: importedCount,
+      duplicate: duplicateCount,
       skipped: skippedCount,
       errors: errors.slice(0, 10)
     });
   } catch (err) {
     console.error('Import error:', err);
     res.status(500).json({ error: 'Failed to import file: ' + err.message });
+  }
+});
+
+// Reset all data (for admin)
+app.post('/api/reset', async (req, res) => {
+  try {
+    await pool.query('TRUNCATE TABLE rak_entries RESTART IDENTITY');
+    res.json({ message: 'All data has been deleted', status: 'success' });
+  } catch (err) {
+    console.error('Reset error:', err);
+    res.status(500).json({ error: 'Failed to reset data: ' + err.message });
   }
 });
 
