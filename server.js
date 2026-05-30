@@ -207,21 +207,23 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
   }
 });
 
-// Reset all data (for admin)
+// Reset all data (for admin only - requires password)
 app.post('/api/reset', async (req, res) => {
-  try {
-    await pool.query('TRUNCATE TABLE rak_entries RESTART IDENTITY');
-    res.json({ message: 'All data has been deleted', status: 'success' });
-  } catch (err) {
-    console.error('Reset error:', err);
-    res.status(500).json({ error: 'Failed to reset data: ' + err.message });
+  const { password } = req.body;
+  const RESET_PASSWORD = process.env.RESET_PASSWORD || 'RAK_ADMIN_2024';
+  
+  // Verify password
+  if (!password) {
+    return res.status(401).json({ error: 'Password required' });
   }
-});
-
-// Reset all data (for admin)
-app.post('/api/reset', async (req, res) => {
+  
+  if (password !== RESET_PASSWORD) {
+    return res.status(403).json({ error: 'Invalid password' });
+  }
+  
   try {
     await pool.query('TRUNCATE TABLE rak_entries RESTART IDENTITY');
+    console.log('✓ Admin reset data executed');
     res.json({ message: 'All data has been deleted', status: 'success' });
   } catch (err) {
     console.error('Reset error:', err);
