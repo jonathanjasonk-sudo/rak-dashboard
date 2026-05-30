@@ -852,7 +852,7 @@ async function resetData() {
   const confirmed = confirm('⚠️ Apakah Anda yakin ingin menghapus SEMUA data? Tindakan ini tidak bisa dibatalkan!');
   if (!confirmed) return;
 
-  const secondConfirm = confirm('PERHATIAN: Ini akan menghapus 479+ data yang sudah ada. Lanjutkan?');
+  const secondConfirm = confirm('PERHATIAN: Ini akan menghapus semua data yang sudah ada. Lanjutkan?');
   if (!secondConfirm) return;
 
   try {
@@ -936,6 +936,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     showToast('Failed to connect to database', 'error');
   }
 });
+</script>
 
 const BUILDING_COLORS = {
   A:'#58a6ff',B:'#3fb950',D:'#d2a8ff',E:'#ffa657',F:'#f85149',

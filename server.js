@@ -218,6 +218,17 @@ app.post('/api/reset', async (req, res) => {
   }
 });
 
+// Reset all data (for admin)
+app.post('/api/reset', async (req, res) => {
+  try {
+    await pool.query('TRUNCATE TABLE rak_entries RESTART IDENTITY');
+    res.json({ message: 'All data has been deleted', status: 'success' });
+  } catch (err) {
+    console.error('Reset error:', err);
+    res.status(500).json({ error: 'Failed to reset data: ' + err.message });
+  }
+});
+
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
