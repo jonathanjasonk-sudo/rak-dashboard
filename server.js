@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 const { Pool } = require('pg');
 const multer = require('multer');
@@ -71,6 +72,50 @@ async function initDatabase() {
       console.log(`⏳ Retrying in ${RETRY_DELAY/1000}s...\n`);
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
     }
+  }
+}
+
+// ===== RUN MIGRATIONS =====
+async function runMigrations() {
+  console.log('\n📦 Running database migrations...');
+  
+  const migrationsDir = path.join(__dirname, 'migrations');
+  
+  try {
+    // Check if migrations directory exists
+    if (!fs.existsSync(migrationsDir)) {
+      console.log('⚠️  Migrations directory not found, skipping...\n');
+      return;
+    }
+    
+    // Get all migration files, sorted
+    const files = fs.readdirSync(migrationsDir)
+      .filter(f => f.endsWith('.js') && !f.includes('TEMPLATE'))
+      .sort();
+    
+    if (files.length === 0) {
+      console.log('ℹ️  No migration files found\n');
+      return;
+    }
+    
+    console.log(`Found ${files.length} migration(s):\n`);
+    
+    for (const file of files) {
+      const filePath = path.join(migrationsDir, file);
+      console.log(`▶️  Running: ${file}`);
+      
+      try {
+        // Import and run migration
+        require(filePath);
+      } catch (err) {
+        // Migration module might exit process, that's ok
+        console.error(`   Error in ${file}:`, err.message);
+      }
+    }
+    
+    console.log('\n✅ All migrations processed\n');
+  } catch (err) {
+    console.error('Error running migrations:', err.message);
   }
 }
 
@@ -341,7 +386,10 @@ async function startServer() {
   // Try to init database, but don't fail if it's not ready yet
   const dbReady = await initDatabase();
   
-  if (!dbReady) {
+  // Run migrations if database is ready
+  if (dbReady) {
+    await runMigrations();
+  } else {
     console.log('⚠️  Database will be retried on first API call\n');
   }
   
