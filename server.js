@@ -383,14 +383,11 @@ async function startServer() {
   console.log(`🔌 Port: ${PORT}`);
   console.log(`💾 Database URL: ${process.env.DATABASE_URL ? 'SET' : 'NOT SET'}\n`);
   
-  // Try to init database, but don't fail if it's not ready yet
+  // Try to init database
   const dbReady = await initDatabase();
   
-  // Run migrations if database is ready
-  if (dbReady) {
-    await runMigrations();
-  } else {
-    console.log('⚠️  Database will be retried on first API call\n');
+  if (!dbReady) {
+    console.log('⚠️  Database initialization failed, but server will continue...\n');
   }
   
   app.listen(PORT, () => {

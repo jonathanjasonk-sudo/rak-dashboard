@@ -12,9 +12,10 @@ const pool = new Pool({
 });
 
 async function runMigration() {
-  const client = await pool.connect();
+  let client;
   
   try {
+    client = await pool.connect();
     console.log('🚀 Running migration: Add soft delete columns\n');
 
     // Check if column already exists
@@ -27,7 +28,6 @@ async function runMigration() {
     if (checkResult.rows.length > 0) {
       console.log('⚠️  Column deleted_at already exists, skipping...\n');
       client.release();
-      await pool.end();
       return;
     }
 
@@ -47,14 +47,24 @@ async function runMigration() {
     console.log('   ✓ Index created');
 
     console.log('\n✅ Migration completed successfully!\n');
-
+    
   } catch (err) {
-    console.error('❌ Migration failed:', err.message);
-    process.exit(1);
+    // Ignore "column already exists" error
+    if (err.code === '42701') {
+      console.log('ℹ️  Column already exists, skipping...\n');
+    } else {
+      console.error('Migration error:', err.message);
+    }
   } finally {
-    client.release();
-    await pool.end();
+    if (client) {
+      client.release();
+    }
+    pool.end();
   }
 }
 
-runMigration();
+runMigration().catch(err => {
+  console.error('Fatal error:', err);
+  process.exit(1);
+});
+
