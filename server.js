@@ -28,31 +28,49 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // ===== DATABASE INITIALIZATION =====
 async function initDatabase() {
-  try {
-    const client = await pool.connect();
-    
-    // Create table if it doesn't exist
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS rak_entries (
-        id SERIAL PRIMARY KEY,
-        spk VARCHAR(50) NOT NULL,
-        rak VARCHAR(50) NOT NULL,
-        source VARCHAR(50) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        deleted_at TIMESTAMP,
-        UNIQUE(spk, rak)
-      );
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY = 3000; // 3 seconds
+  
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`\n🔄 Database connection attempt ${attempt}/${MAX_RETRIES}...`);
+      const client = await pool.connect();
+      console.log('✓ Connected to PostgreSQL');
       
-      CREATE INDEX IF NOT EXISTS idx_spk ON rak_entries(spk);
-      CREATE INDEX IF NOT EXISTS idx_rak ON rak_entries(rak);
-      CREATE INDEX IF NOT EXISTS idx_deleted ON rak_entries(deleted_at);
-    `);
-    
-    console.log('✓ Database initialized');
-    client.release();
-  } catch (err) {
-    console.error('Database initialization error:', err);
+      // Create main table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS rak_entries (
+          id SERIAL PRIMARY KEY,
+          spk VARCHAR(50) NOT NULL,
+          rak VARCHAR(50) NOT NULL,
+          source VARCHAR(50) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          deleted_at TIMESTAMP,
+          UNIQUE(spk, rak)
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_spk ON rak_entries(spk);
+        CREATE INDEX IF NOT EXISTS idx_rak ON rak_entries(rak);
+        CREATE INDEX IF NOT EXISTS idx_deleted ON rak_entries(deleted_at);
+      `);
+      console.log('✓ Table rak_entries initialized');
+      
+      client.release();
+      console.log('✅ Database initialization completed\n');
+      return true;
+    } catch (err) {
+      console.error(`❌ Attempt ${attempt} failed:`, err.message);
+      
+      if (attempt === MAX_RETRIES) {
+        console.error('\n⚠️  Max retries reached. Database may not be ready.');
+        console.error('ERROR:', err.message);
+        return false;
+      }
+      
+      console.log(`⏳ Retrying in ${RETRY_DELAY/1000}s...\n`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+    }
   }
 }
 
@@ -314,19 +332,34 @@ app.get('/', (req, res) => {
 // ===== START SERVER =====
 const PORT = process.env.PORT || 3000;
 
-initDatabase().then(() => {
+async function startServer() {
+  console.log('🚀 Starting RAK Dashboard Server...');
+  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔌 Port: ${PORT}`);
+  console.log(`💾 Database URL: ${process.env.DATABASE_URL ? 'SET' : 'NOT SET'}\n`);
+  
+  // Try to init database, but don't fail if it's not ready yet
+  const dbReady = await initDatabase();
+  
+  if (!dbReady) {
+    console.log('⚠️  Database will be retried on first API call\n');
+  }
+  
   app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log('Database connection pooled and ready');
+    console.log(`✅ Server listening on port ${PORT}`);
+    console.log(`🌐 Access at: http://localhost:${PORT}`);
+    console.log('━'.repeat(50) + '\n');
   });
-}).catch(err => {
-  console.error('Failed to start server:', err);
+}
+
+startServer().catch(err => {
+  console.error('Fatal error:', err);
   process.exit(1);
 });
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('Shutting down gracefully...');
+  console.log('\n🛑 Shutting down gracefully...');
   await pool.end();
   process.exit(0);
 });
