@@ -686,6 +686,7 @@ let data = [];
 let deletedData = [];
 let newEntries = [];
 let activeBuilding = 'ALL';
+let viewMode = 'normal'; // 'normal' or 'deleted'
 let donutChart, barChart;
 
 const BUILDING_COLORS = {
@@ -925,17 +926,31 @@ function renderTabs() {
   const stats = computeStats();
   const buildings = ['ALL', ...Object.keys(stats.byBuilding).sort()];
   const bar = document.getElementById('tabBar');
-  bar.innerHTML = buildings.map(b => {
-    const active = b === activeBuilding ? 'active ' + b : '';
+  
+  let html = buildings.map(b => {
+    const active = viewMode === 'normal' && b === activeBuilding ? 'active ' + b : '';
     const label = b === 'ALL' ? `ALL (${stats.total})` : `${b} (${stats.byBuilding[b]||0})`;
     return `<button class="tab-btn ${active}" onclick="filterBuilding('${b}')">${label}</button>`;
   }).join('');
+  
+  // Add DELETED tab
+  const deletedActive = viewMode === 'deleted' ? 'active DELETED' : '';
+  html += `<button class="tab-btn ${deletedActive}" style="background: rgba(248,81,73,0.2); border-color: #f85149;" onclick="viewDeletedData()">🗑️ DELETED (${stats.deleted || 0})</button>`;
+  
+  bar.innerHTML = html;
 }
 
 function filterBuilding(b) {
+  viewMode = 'normal';
   activeBuilding = b;
   renderTabs();
   renderRakGrid();
+}
+
+function viewDeletedData() {
+  viewMode = 'deleted';
+  renderTabs();
+  renderDeletedDataView();
 }
 
 // ===== RAK GRID =====
@@ -1017,6 +1032,36 @@ async function confirmDeleteEntry(id, spk, rak) {
 }
 
 // ===== DELETED DATA MODAL =====
+// ===== RENDER DELETED DATA VIEW =====
+function renderDeletedDataView() {
+  document.getElementById('rak-count-label').textContent = `${deletedData.length} Deleted Records`;
+  
+  const grid = document.getElementById('rakGrid');
+  if (deletedData.length === 0) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:12px;">Tidak ada data yang dihapus</div>`;
+    return;
+  }
+
+  grid.innerHTML = deletedData.map((e, idx) => `
+    <div style="background: var(--surface2); border: 2px solid rgba(248,81,73,0.3); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text); font-weight: bold;">
+            ${e.spk} → <span style="color: var(--accent-orange);">${e.rak}</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+            Sumber: ${e.source}
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 10px; color: var(--text-muted);">
+        Dihapus: ${new Date(e.deleted_at).toLocaleString()}
+      </div>
+      <button onclick="restoreEntry(${e.id}, '${e.spk}', '${e.rak}')" style="background: var(--accent-green); border: none; border-radius: 4px; color: white; padding: 6px 10px; cursor: pointer; font-size: 12px; font-weight: bold; width: 100%; transition: 0.2s;">↩️ Restore Entry</button>
+    </div>
+  `).join('');
+}
+
 function openDeletedModal() {
   if (deletedData.length === 0) {
     showToast('Tidak ada data yang dihapus', 'error');
@@ -1060,7 +1105,14 @@ async function restoreEntry(id, spk, rak) {
     
     await fetchData();
     refreshAll();
-    openDeletedModal();
+    
+    // Refresh appropriate view
+    if (viewMode === 'deleted') {
+      renderDeletedDataView();
+    } else {
+      openDeletedModal();
+    }
+    
     showToast(`✓ SPK ${spk} berhasil di-restore`);
   } catch (err) {
     console.error('Restore error:', err);
@@ -1220,7 +1272,11 @@ function refreshAll() {
   renderStats();
   renderLegend();
   renderTabs();
-  renderRakGrid(document.getElementById('searchInput').value);
+  if (viewMode === 'deleted') {
+    renderDeletedDataView();
+  } else {
+    renderRakGrid(document.getElementById('searchInput').value);
+  }
   updateCharts();
 }
 
