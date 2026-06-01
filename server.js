@@ -40,11 +40,13 @@ async function initDatabase() {
         source VARCHAR(50) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP,
         UNIQUE(spk, rak)
       );
       
       CREATE INDEX IF NOT EXISTS idx_spk ON rak_entries(spk);
       CREATE INDEX IF NOT EXISTS idx_rak ON rak_entries(rak);
+      CREATE INDEX IF NOT EXISTS idx_deleted ON rak_entries(deleted_at);
     `);
     
     console.log('✓ Database initialized');
@@ -56,11 +58,11 @@ async function initDatabase() {
 
 // ===== API ENDPOINTS =====
 
-// Get all data
+// Get all data (excluding soft deleted)
 app.get('/api/data', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, spk, rak, source FROM rak_entries ORDER BY created_at DESC LIMIT 10000'
+      'SELECT id, spk, rak, source, created_at FROM rak_entries WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 10000'
     );
     res.json(result.rows);
   } catch (err) {
@@ -69,18 +71,33 @@ app.get('/api/data', async (req, res) => {
   }
 });
 
+// Get deleted data only
+app.get('/api/data/deleted', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, spk, rak, source, created_at, deleted_at FROM rak_entries WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 10000'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Get deleted data error:', err);
+    res.status(500).json({ error: 'Failed to fetch deleted data' });
+  }
+});
+
 // Get stats
 app.get('/api/stats', async (req, res) => {
   try {
-    const total = await pool.query('SELECT COUNT(*) FROM rak_entries');
-    const uniqueSPK = await pool.query('SELECT COUNT(DISTINCT spk) FROM rak_entries');
-    const uniqueRAK = await pool.query('SELECT COUNT(DISTINCT rak) FROM rak_entries');
-    const buildings = await pool.query('SELECT DISTINCT SUBSTRING(rak FROM 1 FOR 1) as building FROM rak_entries UNION SELECT \'IMPORT\' FROM rak_entries WHERE rak LIKE \'IMPORT%\' ORDER BY building');
+    const total = await pool.query('SELECT COUNT(*) FROM rak_entries WHERE deleted_at IS NULL');
+    const uniqueSPK = await pool.query('SELECT COUNT(DISTINCT spk) FROM rak_entries WHERE deleted_at IS NULL');
+    const uniqueRAK = await pool.query('SELECT COUNT(DISTINCT rak) FROM rak_entries WHERE deleted_at IS NULL');
+    const deleted = await pool.query('SELECT COUNT(*) FROM rak_entries WHERE deleted_at IS NOT NULL');
+    const buildings = await pool.query('SELECT DISTINCT SUBSTRING(rak FROM 1 FOR 1) as building FROM rak_entries WHERE deleted_at IS NULL UNION SELECT \'IMPORT\' FROM rak_entries WHERE rak LIKE \'IMPORT%\' AND deleted_at IS NULL ORDER BY building');
     
     res.json({
       total: parseInt(total.rows[0].count),
       uniqueSPK: parseInt(uniqueSPK.rows[0].count),
       uniqueRAK: parseInt(uniqueRAK.rows[0].count),
+      deleted: parseInt(deleted.rows[0].count),
       buildings: buildings.rows.map(r => r.building).filter(b => b)
     });
   } catch (err) {
@@ -114,15 +131,18 @@ app.post('/api/entries', async (req, res) => {
   }
 });
 
-// Delete entry
+// Delete entry (soft delete)
 app.delete('/api/entries/:id', async (req, res) => {
   const { id } = req.params;
   
   try {
-    const result = await pool.query('DELETE FROM rak_entries WHERE id = $1 RETURNING *', [id]);
+    const result = await pool.query(
+      'UPDATE rak_entries SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL RETURNING *',
+      [id]
+    );
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Entry not found' });
+      return res.status(404).json({ error: 'Entry not found or already deleted' });
     }
     
     res.json({ message: 'Entry deleted', entry: result.rows[0] });
@@ -132,13 +152,34 @@ app.delete('/api/entries/:id', async (req, res) => {
   }
 });
 
+// Restore deleted entry
+app.post('/api/entries/:id/restore', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const result = await pool.query(
+      'UPDATE rak_entries SET deleted_at = NULL WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Entry not found or not deleted' });
+    }
+    
+    res.json({ message: 'Entry restored', entry: result.rows[0] });
+  } catch (err) {
+    console.error('Restore entry error:', err);
+    res.status(500).json({ error: 'Failed to restore entry' });
+  }
+});
+
 // Get entries by SPK and RAK (for modal details)
 app.get('/api/entries/detail/:rak', async (req, res) => {
   const { rak } = req.params;
   
   try {
     const result = await pool.query(
-      'SELECT id, spk, rak, source FROM rak_entries WHERE rak = $1 ORDER BY created_at DESC',
+      'SELECT id, spk, rak, source, created_at FROM rak_entries WHERE rak = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
       [rak]
     );
     res.json(result.rows);
@@ -228,6 +269,30 @@ app.post('/api/reset', async (req, res) => {
   } catch (err) {
     console.error('Reset error:', err);
     res.status(500).json({ error: 'Failed to reset data: ' + err.message });
+  }
+});
+
+// Permanently delete all deleted data
+app.post('/api/deleted/purge', async (req, res) => {
+  const { password } = req.body;
+  const RESET_PASSWORD = process.env.RESET_PASSWORD || 'RAK_ADMIN_2024';
+  
+  // Verify password
+  if (!password) {
+    return res.status(401).json({ error: 'Password required' });
+  }
+  
+  if (password !== RESET_PASSWORD) {
+    return res.status(403).json({ error: 'Invalid password' });
+  }
+  
+  try {
+    const result = await pool.query('DELETE FROM rak_entries WHERE deleted_at IS NOT NULL');
+    console.log('✓ Permanently purged deleted data');
+    res.json({ message: `${result.rowCount} deleted records permanently removed`, status: 'success' });
+  } catch (err) {
+    console.error('Purge error:', err);
+    res.status(500).json({ error: 'Failed to purge deleted data: ' + err.message });
   }
 });
 
