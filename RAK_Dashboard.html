@@ -131,14 +131,19 @@
   .rubber-import .sidebar-item-icon { background: rgba(137, 87, 229, 0.2); color: var(--accent-purple); }
   
   .sidebar-overlay {
-    display: none;
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
     z-index: 140;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
   }
   
-  .sidebar-overlay.open { display: block; }
+  .sidebar-overlay.open { 
+    opacity: 1;
+    pointer-events: auto;
+  }
 
   /* HEADER */
   .header {
@@ -150,7 +155,7 @@
     justify-content: space-between;
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 200;
   }
   
   .hamburger-btn {
