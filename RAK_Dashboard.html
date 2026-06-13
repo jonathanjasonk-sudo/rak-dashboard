@@ -1040,6 +1040,10 @@ updateClock();
 
 // ===== CHARTS =====
 function initCharts() {
+  // Destroy old charts before creating new ones
+  if (donutChart) donutChart.destroy();
+  if (barChart) barChart.destroy();
+  
   const stats = computeStats();
   const buildings = Object.keys(stats.byBuilding).sort();
   const counts = buildings.map(b => stats.byBuilding[b]);
