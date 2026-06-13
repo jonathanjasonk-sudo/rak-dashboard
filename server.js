@@ -27,6 +27,22 @@ pool.on('error', (err) => {
 // ===== MULTER SETUP =====
 const upload = multer({ storage: multer.memoryStorage() });
 
+// ===== TABLE MAPPING =====
+const TAB_NAMES = {
+  'ip_import': 'rak_entries',
+  'ip_local': 'ip_local_entries',
+  'rubber_local': 'rubber_local_entries',
+  'rubber_import': 'rubber_import_entries'
+};
+
+const getTableName = (tab = 'ip_import') => {
+  return TAB_NAMES[tab] || 'rak_entries';
+};
+
+const validateTab = (tab) => {
+  return Object.keys(TAB_NAMES).includes(tab);
+};
+
 // ===== DATABASE INITIALIZATION =====
 async function initDatabase() {
   const MAX_RETRIES = 5;
@@ -38,24 +54,33 @@ async function initDatabase() {
       const client = await pool.connect();
       console.log('✓ Connected to PostgreSQL');
       
-      // Create main table
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS rak_entries (
-          id SERIAL PRIMARY KEY,
-          spk VARCHAR(50) NOT NULL,
-          rak VARCHAR(50) NOT NULL,
-          source VARCHAR(50) NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          deleted_at TIMESTAMP,
-          UNIQUE(spk, rak)
-        );
-        
-        CREATE INDEX IF NOT EXISTS idx_spk ON rak_entries(spk);
-        CREATE INDEX IF NOT EXISTS idx_rak ON rak_entries(rak);
-        CREATE INDEX IF NOT EXISTS idx_deleted ON rak_entries(deleted_at);
-      `);
-      console.log('✓ Table rak_entries initialized');
+      // Create all tables
+      const tables = [
+        { name: 'rak_entries', label: 'IP Import' },
+        { name: 'ip_local_entries', label: 'IP Local' },
+        { name: 'rubber_local_entries', label: 'Rubber Local' },
+        { name: 'rubber_import_entries', label: 'Rubber Import' }
+      ];
+
+      for (const table of tables) {
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${table.name} (
+            id SERIAL PRIMARY KEY,
+            spk VARCHAR(50) NOT NULL,
+            rak VARCHAR(50) NOT NULL,
+            source VARCHAR(50) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMP,
+            UNIQUE(spk, rak)
+          );
+          
+          CREATE INDEX IF NOT EXISTS idx_${table.name}_spk ON ${table.name}(spk);
+          CREATE INDEX IF NOT EXISTS idx_${table.name}_rak ON ${table.name}(rak);
+          CREATE INDEX IF NOT EXISTS idx_${table.name}_deleted ON ${table.name}(deleted_at);
+        `);
+        console.log(`✓ Table ${table.name} (${table.label}) initialized`);
+      }
       
       client.release();
       console.log('✅ Database initialization completed\n');
@@ -123,9 +148,15 @@ async function runMigrations() {
 
 // Get all data (excluding soft deleted)
 app.get('/api/data', async (req, res) => {
+  const tab = req.query.tab || 'ip_import';
+  if (!validateTab(tab)) {
+    return res.status(400).json({ error: 'Invalid tab' });
+  }
+  
+  const table = getTableName(tab);
   try {
     const result = await pool.query(
-      'SELECT id, spk, rak, source, created_at FROM rak_entries WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 10000'
+      `SELECT id, spk, rak, source, created_at FROM ${table} WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 10000`
     );
     res.json(result.rows);
   } catch (err) {
@@ -136,9 +167,15 @@ app.get('/api/data', async (req, res) => {
 
 // Get deleted data only
 app.get('/api/data/deleted', async (req, res) => {
+  const tab = req.query.tab || 'ip_import';
+  if (!validateTab(tab)) {
+    return res.status(400).json({ error: 'Invalid tab' });
+  }
+  
+  const table = getTableName(tab);
   try {
     const result = await pool.query(
-      'SELECT id, spk, rak, source, created_at, deleted_at FROM rak_entries WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 10000'
+      `SELECT id, spk, rak, source, created_at, deleted_at FROM ${table} WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 10000`
     );
     res.json(result.rows);
   } catch (err) {
@@ -149,12 +186,18 @@ app.get('/api/data/deleted', async (req, res) => {
 
 // Get stats
 app.get('/api/stats', async (req, res) => {
+  const tab = req.query.tab || 'ip_import';
+  if (!validateTab(tab)) {
+    return res.status(400).json({ error: 'Invalid tab' });
+  }
+  
+  const table = getTableName(tab);
   try {
-    const total = await pool.query('SELECT COUNT(*) FROM rak_entries WHERE deleted_at IS NULL');
-    const uniqueSPK = await pool.query('SELECT COUNT(DISTINCT spk) FROM rak_entries WHERE deleted_at IS NULL');
-    const uniqueRAK = await pool.query('SELECT COUNT(DISTINCT rak) FROM rak_entries WHERE deleted_at IS NULL');
-    const deleted = await pool.query('SELECT COUNT(*) FROM rak_entries WHERE deleted_at IS NOT NULL');
-    const buildings = await pool.query('SELECT DISTINCT SUBSTRING(rak FROM 1 FOR 1) as building FROM rak_entries WHERE deleted_at IS NULL UNION SELECT \'IMPORT\' FROM rak_entries WHERE rak LIKE \'IMPORT%\' AND deleted_at IS NULL ORDER BY building');
+    const total = await pool.query(`SELECT COUNT(*) FROM ${table} WHERE deleted_at IS NULL`);
+    const uniqueSPK = await pool.query(`SELECT COUNT(DISTINCT spk) FROM ${table} WHERE deleted_at IS NULL`);
+    const uniqueRAK = await pool.query(`SELECT COUNT(DISTINCT rak) FROM ${table} WHERE deleted_at IS NULL`);
+    const deleted = await pool.query(`SELECT COUNT(*) FROM ${table} WHERE deleted_at IS NOT NULL`);
+    const buildings = await pool.query(`SELECT DISTINCT SUBSTRING(rak FROM 1 FOR 1) as building FROM ${table} WHERE deleted_at IS NULL UNION SELECT 'IMPORT' FROM ${table} WHERE rak LIKE 'IMPORT%' AND deleted_at IS NULL ORDER BY building`);
     
     res.json({
       total: parseInt(total.rows[0].count),
@@ -172,14 +215,20 @@ app.get('/api/stats', async (req, res) => {
 // Add entry
 app.post('/api/entries', async (req, res) => {
   const { spk, rak, source = 'Manual' } = req.body;
+  const tab = req.query.tab || 'ip_import';
+  
+  if (!validateTab(tab)) {
+    return res.status(400).json({ error: 'Invalid tab' });
+  }
   
   if (!spk || !rak) {
     return res.status(400).json({ error: 'SPK and RAK are required' });
   }
 
+  const table = getTableName(tab);
   try {
     const result = await pool.query(
-      'INSERT INTO rak_entries (spk, rak, source) VALUES ($1, $2, $3) ON CONFLICT (spk, rak) DO NOTHING RETURNING *',
+      `INSERT INTO ${table} (spk, rak, source) VALUES ($1, $2, $3) ON CONFLICT (spk, rak) DO NOTHING RETURNING *`,
       [spk, rak.toUpperCase(), source]
     );
     
@@ -197,10 +246,16 @@ app.post('/api/entries', async (req, res) => {
 // Delete entry (soft delete)
 app.delete('/api/entries/:id', async (req, res) => {
   const { id } = req.params;
+  const tab = req.query.tab || 'ip_import';
   
+  if (!validateTab(tab)) {
+    return res.status(400).json({ error: 'Invalid tab' });
+  }
+  
+  const table = getTableName(tab);
   try {
     const result = await pool.query(
-      'UPDATE rak_entries SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL RETURNING *',
+      `UPDATE ${table} SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL RETURNING *`,
       [id]
     );
     
@@ -218,10 +273,16 @@ app.delete('/api/entries/:id', async (req, res) => {
 // Restore deleted entry
 app.post('/api/entries/:id/restore', async (req, res) => {
   const { id } = req.params;
+  const tab = req.query.tab || 'ip_import';
   
+  if (!validateTab(tab)) {
+    return res.status(400).json({ error: 'Invalid tab' });
+  }
+  
+  const table = getTableName(tab);
   try {
     const result = await pool.query(
-      'UPDATE rak_entries SET deleted_at = NULL WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *',
+      `UPDATE ${table} SET deleted_at = NULL WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *`,
       [id]
     );
     
@@ -239,10 +300,16 @@ app.post('/api/entries/:id/restore', async (req, res) => {
 // Get entries by SPK and RAK (for modal details)
 app.get('/api/entries/detail/:rak', async (req, res) => {
   const { rak } = req.params;
+  const tab = req.query.tab || 'ip_import';
   
+  if (!validateTab(tab)) {
+    return res.status(400).json({ error: 'Invalid tab' });
+  }
+  
+  const table = getTableName(tab);
   try {
     const result = await pool.query(
-      'SELECT id, spk, rak, source, created_at FROM rak_entries WHERE rak = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+      `SELECT id, spk, rak, source, created_at FROM ${table} WHERE rak = $1 AND deleted_at IS NULL ORDER BY created_at DESC`,
       [rak]
     );
     res.json(result.rows);
@@ -254,10 +321,17 @@ app.get('/api/entries/detail/:rak', async (req, res) => {
 
 // Import from Excel
 app.post('/api/import', upload.single('file'), async (req, res) => {
+  const tab = req.query.tab || 'ip_import';
+  
+  if (!validateTab(tab)) {
+    return res.status(400).json({ error: 'Invalid tab' });
+  }
+  
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
+  const table = getTableName(tab);
   try {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheetNames = workbook.SheetNames;
@@ -283,7 +357,7 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
 
         try {
           const result = await pool.query(
-            'INSERT INTO rak_entries (spk, rak, source) VALUES ($1, $2, $3) ON CONFLICT (spk, rak) DO NOTHING RETURNING id',
+            `INSERT INTO ${table} (spk, rak, source) VALUES ($1, $2, $3) ON CONFLICT (spk, rak) DO NOTHING RETURNING id`,
             [String(spk).trim(), String(rak).trim().toUpperCase(), `Excel: ${sheetName}`]
           );
           if (result.rows.length > 0) {
@@ -314,6 +388,12 @@ app.post('/api/import', upload.single('file'), async (req, res) => {
 // Reset all data (for admin only - requires password)
 app.post('/api/reset', async (req, res) => {
   const { password } = req.body;
+  const tab = req.query.tab || 'ip_import';
+  
+  if (!validateTab(tab)) {
+    return res.status(400).json({ error: 'Invalid tab' });
+  }
+  
   const RESET_PASSWORD = process.env.RESET_PASSWORD || 'RAK_ADMIN_2024';
   
   // Verify password
@@ -325,9 +405,10 @@ app.post('/api/reset', async (req, res) => {
     return res.status(403).json({ error: 'Invalid password' });
   }
   
+  const table = getTableName(tab);
   try {
-    await pool.query('TRUNCATE TABLE rak_entries RESTART IDENTITY');
-    console.log('✓ Admin reset data executed');
+    await pool.query(`TRUNCATE TABLE ${table} RESTART IDENTITY`);
+    console.log(`✓ Admin reset data executed for table: ${table}`);
     res.json({ message: 'All data has been deleted', status: 'success' });
   } catch (err) {
     console.error('Reset error:', err);
@@ -338,6 +419,12 @@ app.post('/api/reset', async (req, res) => {
 // Permanently delete all deleted data
 app.post('/api/deleted/purge', async (req, res) => {
   const { password } = req.body;
+  const tab = req.query.tab || 'ip_import';
+  
+  if (!validateTab(tab)) {
+    return res.status(400).json({ error: 'Invalid tab' });
+  }
+  
   const RESET_PASSWORD = process.env.RESET_PASSWORD || 'RAK_ADMIN_2024';
   
   // Verify password
@@ -349,9 +436,10 @@ app.post('/api/deleted/purge', async (req, res) => {
     return res.status(403).json({ error: 'Invalid password' });
   }
   
+  const table = getTableName(tab);
   try {
-    const result = await pool.query('DELETE FROM rak_entries WHERE deleted_at IS NOT NULL');
-    console.log('✓ Permanently purged deleted data');
+    const result = await pool.query(`DELETE FROM ${table} WHERE deleted_at IS NOT NULL`);
+    console.log(`✓ Permanently purged deleted data from table: ${table}`);
     res.json({ message: `${result.rowCount} deleted records permanently removed`, status: 'success' });
   } catch (err) {
     console.error('Purge error:', err);

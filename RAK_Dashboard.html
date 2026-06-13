@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAK IP IMPOR Dashboard</title>
+<title>RAK Dashboard Multi-Tab</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -48,6 +48,98 @@
     overflow-x: hidden;
   }
 
+  /* SIDEBAR MENU */
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 240px;
+    height: 100vh;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    z-index: 150;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+  }
+  
+  .sidebar.open { transform: translateX(0); }
+  
+  .sidebar-header {
+    padding: 0 18px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .sidebar-logo { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-green); }
+  .sidebar-title { font-size: 12px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; }
+  
+  .sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 10px;
+  }
+  
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+  
+  .sidebar-item:hover {
+    background: var(--surface2);
+    color: var(--text);
+  }
+  
+  .sidebar-item.active {
+    background: var(--surface2);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+  }
+  
+  .sidebar-item.ip-import.active { border-color: var(--accent-blue); color: var(--accent-blue); }
+  .sidebar-item.ip-local.active { border-color: var(--accent-green); color: var(--accent-green); }
+  .sidebar-item.rubber-local.active { border-color: var(--accent-orange); color: var(--accent-orange); }
+  .sidebar-item.rubber-import.active { border-color: var(--accent-purple); color: var(--accent-purple); }
+  
+  .sidebar-item-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+  }
+  
+  .ip-import .sidebar-item-icon { background: rgba(47, 129, 247, 0.2); color: var(--accent-blue); }
+  .ip-local .sidebar-item-icon { background: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
+  .rubber-local .sidebar-item-icon { background: rgba(210, 153, 34, 0.2); color: var(--accent-orange); }
+  .rubber-import .sidebar-item-icon { background: rgba(137, 87, 229, 0.2); color: var(--accent-purple); }
+  
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 140;
+  }
+  
+  .sidebar-overlay.open { display: block; }
+
   /* HEADER */
   .header {
     background: var(--surface);
@@ -60,6 +152,24 @@
     top: 0;
     z-index: 100;
   }
+  
+  .hamburger-btn {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    display: none;
+    line-height: 1;
+  }
+  
+  .hamburger-btn:hover { color: var(--accent-blue); }
+  
+  @media (max-width: 900px) {
+    .hamburger-btn { display: block; }
+  }
+  
   .header-left { display: flex; align-items: center; gap: 14px; }
   .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 10px var(--accent-green); animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -501,9 +611,10 @@
 <body>
 
 <div class="header">
+  <button class="hamburger-btn" onclick="toggleSidebar()">☰</button>
   <div class="header-left">
     <div class="logo-dot"></div>
-    <h1>RAK IP IMPOR &mdash; Warehouse Dashboard</h1>
+    <h1>RAK Dashboard — Warehouse</h1>
   </div>
   <div class="header-right">
     <div>
@@ -513,6 +624,34 @@
     <div class="status-badge">● CONNECTED</div>
   </div>
 </div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo"></div>
+    <div class="sidebar-title">Menu</div>
+  </div>
+  <div class="sidebar-menu">
+    <div class="sidebar-item ip-import active" onclick="switchTab('ip_import')">
+      <div class="sidebar-item-icon">📦</div>
+      <span>IP Import</span>
+    </div>
+    <div class="sidebar-item ip-local" onclick="switchTab('ip_local')">
+      <div class="sidebar-item-icon">📍</div>
+      <span>IP Local</span>
+    </div>
+    <div class="sidebar-item rubber-local" onclick="switchTab('rubber_local')">
+      <div class="sidebar-item-icon">🔴</div>
+      <span>Rubber Local</span>
+    </div>
+    <div class="sidebar-item rubber-import" onclick="switchTab('rubber_import')">
+      <div class="sidebar-item-icon">🚚</div>
+      <span>Rubber Import</span>
+    </div>
+  </div>
+</div>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
 <div class="main">
 
@@ -687,6 +826,7 @@ let deletedData = [];
 let newEntries = [];
 let activeBuilding = 'ALL';
 let viewMode = 'normal'; // 'normal' or 'deleted'
+let currentTab = 'ip_import'; // Current selected tab
 let donutChart, barChart;
 
 const BUILDING_COLORS = {
@@ -694,6 +834,64 @@ const BUILDING_COLORS = {
   G:'#79c0ff',H:'#56d364',I:'#e3b341',J:'#ff7b72',K:'#a371f7',
   L:'#63e6be',M:'#f0883e',N:'#ec6cb9',IMPORT:'#94a3b8'
 };
+
+// ===== SIDEBAR MANAGEMENT =====
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('open');
+}
+
+function closeSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sidebar.classList.remove('open');
+  overlay.classList.remove('open');
+}
+
+function switchTab(tabName) {
+  currentTab = tabName;
+  
+  // Update active menu item
+  document.querySelectorAll('.sidebar-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  document.querySelector(`.sidebar-item.${tabName}`).classList.add('active');
+  
+  // Update page title based on tab
+  const titles = {
+    'ip_import': 'IP Import',
+    'ip_local': 'IP Local',
+    'rubber_local': 'Rubber Local',
+    'rubber_import': 'Rubber Import'
+  };
+  document.querySelector('.header h1').textContent = `RAK Dashboard — ${titles[tabName]}`;
+  
+  // Close sidebar if open
+  closeSidebar();
+  
+  // Reset view and fetch new data
+  activeBuilding = 'ALL';
+  viewMode = 'normal';
+  newEntries = [];
+  
+  // Fetch data for the new tab and refresh everything
+  fetchData().then(() => {
+    initCharts();
+    renderStats();
+    renderLegend();
+    renderTabs();
+    renderRakGrid();
+    renderLog();
+    showToast(`✓ Switched to ${titles[tabName]}`);
+  });
+}
+
+// ===== SIDEBAR STYLING FOR RESPONSIVE =====
+@media (max-width: 900px) {
+  .sidebar { width: 240px; }
+}
 
 function getBuildingKey(rak) {
   if (rak.startsWith('IMPORT')) return 'IMPORT';
@@ -708,12 +906,12 @@ function getColor(rak) {
 // ===== API CALLS =====
 async function fetchData() {
   try {
-    const res = await fetch(API_BASE + '/data');
+    const res = await fetch(`${API_BASE}/data?tab=${currentTab}`);
     if (!res.ok) throw new Error('Failed to fetch data');
     data = await res.json();
     
     // Also fetch deleted data
-    const resDeleted = await fetch(API_BASE + '/data/deleted');
+    const resDeleted = await fetch(`${API_BASE}/data/deleted?tab=${currentTab}`);
     if (resDeleted.ok) {
       deletedData = await resDeleted.json();
     }
@@ -728,7 +926,7 @@ async function fetchData() {
 
 async function addEntry(spk, rak) {
   try {
-    const res = await fetch(API_BASE + '/entries', {
+    const res = await fetch(`${API_BASE}/entries?tab=${currentTab}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ spk, rak, source: 'Manual' })
@@ -759,7 +957,7 @@ async function deleteEntry(id, spk, rak) {
   try {
     console.log(`Deleting entry: id=${id}, spk=${spk}, rak=${rak}`);
     
-    const res = await fetch(API_BASE + `/entries/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_BASE}/entries/${id}?tab=${currentTab}`, { method: 'DELETE' });
     
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Unknown error' }));
@@ -783,7 +981,7 @@ async function importExcel(file) {
 
   try {
     showToast('Mengimport file...', 'success');
-    const res = await fetch(API_BASE + '/import', {
+    const res = await fetch(`${API_BASE}/import?tab=${currentTab}`, {
       method: 'POST',
       body: formData
     });
@@ -1194,7 +1392,7 @@ async function confirmReset() {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/reset`, {
+    const response = await fetch(`${API_BASE}/reset?tab=${currentTab}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password })
