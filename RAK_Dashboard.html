@@ -856,7 +856,8 @@ function switchTab(tabName) {
   document.querySelectorAll('.sidebar-item').forEach(item => {
     item.classList.remove('active');
   });
-  document.querySelector(`.sidebar-item.${tabName}`).classList.add('active');
+  const className = tabName.replace(/_/g, '-'); // Convert ip_local → ip-local
+  document.querySelector(`.sidebar-item.${className}`).classList.add('active');
   
   // Update page title based on tab
   const titles = {
