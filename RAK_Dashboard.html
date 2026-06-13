@@ -164,13 +164,23 @@
     color: var(--text);
     font-size: 24px;
     cursor: pointer;
-    padding: 8px;
+    padding: 8px 12px;
     display: block;
     line-height: 1;
     transition: color 0.2s;
+    min-width: 44px;
+    min-height: 44px;
+    text-align: center;
   }
   
-  .hamburger-btn:hover { color: var(--accent-blue); }
+  .hamburger-btn:hover { 
+    color: var(--accent-blue);
+    background: rgba(255,255,255,0.1);
+  }
+  
+  .hamburger-btn:active { 
+    transform: scale(0.95);
+  }
   
   .header-left { display: flex; align-items: center; gap: 14px; }
   .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 10px var(--accent-green); animation: pulse 2s infinite; }
@@ -839,10 +849,14 @@ const BUILDING_COLORS = {
 
 // ===== SIDEBAR MANAGEMENT =====
 function toggleSidebar() {
+  console.log('toggleSidebar clicked!');
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
+  console.log('Sidebar element:', sidebar);
+  console.log('Overlay element:', overlay);
   sidebar.classList.toggle('open');
   overlay.classList.toggle('open');
+  console.log('Sidebar classes after toggle:', sidebar.className);
 }
 
 function closeSidebar() {
