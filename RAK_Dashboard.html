@@ -131,19 +131,14 @@
   .rubber-import .sidebar-item-icon { background: rgba(137, 87, 229, 0.2); color: var(--accent-purple); }
   
   .sidebar-overlay {
+    display: none;
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
     z-index: 140;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
   }
   
-  .sidebar-overlay.open { 
-    opacity: 1;
-    pointer-events: auto;
-  }
+  .sidebar-overlay.open { display: block; }
 
   /* HEADER */
   .header {
@@ -155,7 +150,7 @@
     justify-content: space-between;
     position: sticky;
     top: 0;
-    z-index: 200;
+    z-index: 100;
   }
   
   .hamburger-btn {
@@ -164,22 +159,15 @@
     color: var(--text);
     font-size: 24px;
     cursor: pointer;
-    padding: 8px 12px;
-    display: block;
+    padding: 8px;
+    display: none;
     line-height: 1;
-    transition: color 0.2s;
-    min-width: 44px;
-    min-height: 44px;
-    text-align: center;
   }
   
-  .hamburger-btn:hover { 
-    color: var(--accent-blue);
-    background: rgba(255,255,255,0.1);
-  }
+  .hamburger-btn:hover { color: var(--accent-blue); }
   
-  .hamburger-btn:active { 
-    transform: scale(0.95);
+  @media (max-width: 900px) {
+    .hamburger-btn { display: block; }
   }
   
   .header-left { display: flex; align-items: center; gap: 14px; }
@@ -849,14 +837,10 @@ const BUILDING_COLORS = {
 
 // ===== SIDEBAR MANAGEMENT =====
 function toggleSidebar() {
-  console.log('toggleSidebar clicked!');
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
-  console.log('Sidebar element:', sidebar);
-  console.log('Overlay element:', overlay);
   sidebar.classList.toggle('open');
   overlay.classList.toggle('open');
-  console.log('Sidebar classes after toggle:', sidebar.className);
 }
 
 function closeSidebar() {
